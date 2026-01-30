@@ -34,9 +34,9 @@ A modern, feature-rich quiz application designed for both teachers and students.
 
 ## 🚀 Live Demo
 
-[View Live Demo]((https://kakul-aeron.github.io/Quizmaker/))
+[View Live Demo]
 
-*(Replace YOUR-USERNAME with your GitHub username)*
+(https://github.com/kakul-aeron/Quizmaker.git)
 
 ## 📸 Screenshots
 
