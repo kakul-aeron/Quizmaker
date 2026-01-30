@@ -34,7 +34,7 @@ A modern, feature-rich quiz application designed for both teachers and students.
 
 ## 🚀 Live Demo
 
-[View Live Demo](https://YOUR-USERNAME.github.io/quiz-app/)
+[View Live Demo]((https://kakul-aeron.github.io/Quizmaker/))
 
 *(Replace YOUR-USERNAME with your GitHub username)*
 
@@ -70,7 +70,7 @@ View detailed results with answer review
 ### For Development
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/quiz-app.git
+git clone https://github.com/kakul-aeron/Quizmaker.git
 
 # Navigate to the directory
 cd quiz-app
@@ -218,9 +218,9 @@ Contributions are welcome! Feel free to:
 
 ## 👨‍💻 Author
 
-**Your Name**
-- GitHub: [@YOUR-USERNAME](https://github.com/YOUR-USERNAME)
-- Email: your.email@example.com
+Kakul Aeron
+- GitHub: [@YOUR-USERNAME](https://github.com/kakul-aeron)
+
 
 ## 🙏 Acknowledgments
 
@@ -231,9 +231,8 @@ Contributions are welcome! Feel free to:
 ## 📞 Support
 
 If you encounter any issues or have questions:
-1. Check the [Deployment Guide](DEPLOYMENT-GUIDE.md)
-2. Open an issue on GitHub
-3. Contact the developer
+1. Open an issue on GitHub
+2. Contact the developer
 
 ## ⭐ Show Your Support
 
