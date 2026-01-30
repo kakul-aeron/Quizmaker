@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuizLab - Interactive Learning Platform</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Righteous&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>QuizLab</h1>
+            <p class="subtitle">Interactive Learning Platform for Teachers & Students</p>
+        </header>
+
+        <!-- Mode Selection Screen -->
+        <div id="modeSelection" class="mode-selector">
+            <div class="mode-card" onclick="selectMode('teacher')">
+                <span class="mode-icon">👨‍🏫</span>
+                <h2>Teacher Mode</h2>
+                <p>Create and manage quizzes, share links with students, and track performance in real-time.</p>
+            </div>
+            <div class="mode-card" onclick="selectMode('student')">
+                <span class="mode-icon">👨‍🎓</span>
+                <h2>Student Mode</h2>
+                <p>Join quiz sessions using shared links, answer questions, and see your results instantly.</p>
+            </div>
+        </div>
+
+        <!-- Teacher Interface -->
+        <div id="teacherInterface" class="main-content">
+            <button class="back-btn" onclick="goBack()">← Back to Home</button>
+            
+            <!-- Teacher Dashboard -->
+            <div id="teacherDashboard">
+                <h2 class="section-title">Teacher Dashboard</h2>
+                <div class="btn-group">
+                    <button class="btn" onclick="showCreateQuiz()">
+                        ➕ Create New Quiz
+                    </button>
+                    <button class="btn btn-secondary" onclick="showMyQuizzes()">
+                        📚 My Quizzes
+                    </button>
+                </div>
+            </div>
+
+            <!-- Create Quiz Form -->
+            <div id="createQuizForm" class="hidden">
+                <h2 class="section-title">Create New Quiz</h2>
+                
+                <div class="input-group">
+                    <label>Quiz Title</label>
+                    <input type="text" id="quizTitle" placeholder="Enter quiz title (e.g., JavaScript Fundamentals)">
+                </div>
+
+                <div class="input-group">
+                    <label>Quiz Description</label>
+                    <textarea id="quizDescription" rows="3" placeholder="Brief description of the quiz"></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Time Limit (minutes)</label>
+                    <input type="number" id="quizTime" min="1" max="180" value="15" placeholder="15">
+                </div>
+
+                <div id="questionsContainer"></div>
+
+                <div class="btn-group">
+                    <button class="btn" onclick="addQuestion()">➕ Add Question</button>
+                    <button class="btn btn-secondary" onclick="saveQuiz()">💾 Save Quiz</button>
+                    <button class="back-btn" onclick="cancelCreateQuiz()">Cancel</button>
+                </div>
+            </div>
+
+            <!-- My Quizzes List -->
+            <div id="myQuizzesList" class="hidden">
+                <h2 class="section-title">My Quizzes</h2>
+                <div id="quizzesList"></div>
+                <button class="back-btn" onclick="backToTeacherDashboard()">← Back to Dashboard</button>
+            </div>
+
+            <!-- Quiz Link Display -->
+            <div id="quizLinkSection" class="hidden"></div>
+        </div>
+
+        <!-- Student Interface -->
+        <div id="studentInterface" class="main-content">
+            <button class="back-btn" onclick="goBack()">← Back to Home</button>
+            
+            <!-- Join Quiz Form -->
+            <div id="joinQuizForm">
+                <h2 class="section-title">Join Quiz</h2>
+                
+                <div class="input-group">
+                    <label>Your Name</label>
+                    <input type="text" id="studentName" placeholder="Enter your name">
+                </div>
+
+                <div class="input-group">
+                    <label>Quiz Code</label>
+                    <input type="text" id="quizCode" placeholder="Enter 6-digit quiz code">
+                </div>
+
+                <button class="btn" onclick="joinQuiz()">🚀 Join Quiz</button>
+            </div>
+
+            <!-- Student Quiz View -->
+            <div id="studentQuizView" class="student-quiz-view hidden"></div>
+        </div>
+    </div>
+
+    <!-- JavaScript File -->
+    <script src="script.js"></script>
+</body>
+</html>
