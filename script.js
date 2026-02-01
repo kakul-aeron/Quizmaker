@@ -1,12 +1,11 @@
 // ==========================================
-// QuizLab - JavaScript
-// Interactive Quiz Application
+// QuizLab - JavaScript with Firebase Support
+// Multi-Device Real-Time Quiz Application
 // ==========================================
 
 // ==========================================
 // Global Variables
 // ==========================================
-let quizzes = JSON.parse(localStorage.getItem('quizzes')) || [];
 let currentQuiz = null;
 let currentQuestionIndex = 0;
 let studentAnswers = [];
@@ -15,14 +14,173 @@ let timerInterval = null;
 let timeRemaining = 0;
 let questionCount = 0;
 let selectedAnswerIndex = null;
+let quizzesListener = null;
+
+// ==========================================
+// Firebase Helper Functions
+// ==========================================
+
+/**
+ * Check if Firebase is initialized and configured
+ */
+function isFirebaseEnabled() {
+    return window.firebaseInitialized && window.firebaseDB !== null;
+}
+
+/**
+ * Save quiz to Firebase
+ */
+async function saveQuizToFirebase(quiz) {
+    if (!isFirebaseEnabled()) {
+        console.warn('Firebase not available, using localStorage');
+        return saveQuizToLocalStorage(quiz);
+    }
+
+    try {
+        const { ref, set } = window.firebaseRefs;
+        const quizRef = ref(window.firebaseDB, 'quizzes/' + quiz.id);
+        await set(quizRef, quiz);
+        console.log('✅ Quiz saved to Firebase');
+        return true;
+    } catch (error) {
+        console.error('Error saving to Firebase:', error);
+        return saveQuizToLocalStorage(quiz);
+    }
+}
+
+/**
+ * Get all quizzes from Firebase
+ */
+async function getQuizzesFromFirebase() {
+    if (!isFirebaseEnabled()) {
+        return getQuizzesFromLocalStorage();
+    }
+
+    try {
+        const { ref, get } = window.firebaseRefs;
+        const quizzesRef = ref(window.firebaseDB, 'quizzes');
+        const snapshot = await get(quizzesRef);
+        
+        if (snapshot.exists()) {
+            const quizzesObj = snapshot.val();
+            return Object.values(quizzesObj);
+        }
+        return [];
+    } catch (error) {
+        console.error('Error getting quizzes from Firebase:', error);
+        return getQuizzesFromLocalStorage();
+    }
+}
+
+/**
+ * Get quiz by code from Firebase
+ */
+async function getQuizByCode(code) {
+    if (!isFirebaseEnabled()) {
+        return getQuizByCodeFromLocalStorage(code);
+    }
+
+    try {
+        const quizzes = await getQuizzesFromFirebase();
+        return quizzes.find(q => q.code === code);
+    } catch (error) {
+        console.error('Error getting quiz:', error);
+        return getQuizByCodeFromLocalStorage(code);
+    }
+}
+
+/**
+ * Save participant result to Firebase
+ */
+async function saveParticipantResult(quizId, participant) {
+    if (!isFirebaseEnabled()) {
+        return saveParticipantToLocalStorage(quizId, participant);
+    }
+
+    try {
+        const { ref, push } = window.firebaseRefs;
+        const participantsRef = ref(window.firebaseDB, 'quizzes/' + quizId + '/participants');
+        await push(participantsRef, participant);
+        console.log('✅ Participant result saved to Firebase');
+        return true;
+    } catch (error) {
+        console.error('Error saving participant:', error);
+        return saveParticipantToLocalStorage(quizId, participant);
+    }
+}
+
+/**
+ * Listen for real-time updates to quizzes
+ */
+function listenToQuizUpdates(callback) {
+    if (!isFirebaseEnabled()) {
+        return;
+    }
+
+    try {
+        const { ref, onValue } = window.firebaseRefs;
+        const quizzesRef = ref(window.firebaseDB, 'quizzes');
+        
+        quizzesListener = onValue(quizzesRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const quizzesObj = snapshot.val();
+                const quizzes = Object.values(quizzesObj);
+                callback(quizzes);
+            } else {
+                callback([]);
+            }
+        });
+    } catch (error) {
+        console.error('Error setting up real-time listener:', error);
+    }
+}
+
+/**
+ * Stop listening to quiz updates
+ */
+function stopListeningToQuizUpdates() {
+    if (quizzesListener) {
+        quizzesListener();
+        quizzesListener = null;
+    }
+}
+
+// ==========================================
+// LocalStorage Fallback Functions
+// ==========================================
+
+function saveQuizToLocalStorage(quiz) {
+    let quizzes = JSON.parse(localStorage.getItem('quizzes') || '[]');
+    quizzes.push(quiz);
+    localStorage.setItem('quizzes', JSON.stringify(quizzes));
+    return true;
+}
+
+function getQuizzesFromLocalStorage() {
+    return JSON.parse(localStorage.getItem('quizzes') || '[]');
+}
+
+function getQuizByCodeFromLocalStorage(code) {
+    const quizzes = getQuizzesFromLocalStorage();
+    return quizzes.find(q => q.code === code);
+}
+
+function saveParticipantToLocalStorage(quizId, participant) {
+    let quizzes = getQuizzesFromLocalStorage();
+    const quiz = quizzes.find(q => q.id === quizId);
+    if (quiz) {
+        if (!quiz.participants) quiz.participants = [];
+        quiz.participants.push(participant);
+        localStorage.setItem('quizzes', JSON.stringify(quizzes));
+        return true;
+    }
+    return false;
+}
 
 // ==========================================
 // Mode Selection Functions
 // ==========================================
 
-/**
- * Select mode (teacher or student) and display appropriate interface
- */
 function selectMode(mode) {
     document.getElementById('modeSelection').style.display = 'none';
     if (mode === 'teacher') {
@@ -32,27 +190,20 @@ function selectMode(mode) {
     }
 }
 
-/**
- * Go back to home screen
- */
 function goBack() {
     document.getElementById('modeSelection').style.display = 'grid';
     document.getElementById('teacherInterface').classList.remove('active');
     document.getElementById('studentInterface').classList.remove('active');
     resetInterfaces();
+    stopListeningToQuizUpdates();
 }
 
-/**
- * Reset all interfaces to initial state
- */
 function resetInterfaces() {
-    // Reset teacher interface
     document.getElementById('teacherDashboard').classList.remove('hidden');
     document.getElementById('createQuizForm').classList.add('hidden');
     document.getElementById('myQuizzesList').classList.add('hidden');
     document.getElementById('quizLinkSection').classList.add('hidden');
     
-    // Reset student interface
     document.getElementById('joinQuizForm').classList.remove('hidden');
     document.getElementById('studentQuizView').classList.add('hidden');
     
@@ -63,18 +214,12 @@ function resetInterfaces() {
 // Teacher Functions - Quiz Creation
 // ==========================================
 
-/**
- * Show the create quiz form
- */
 function showCreateQuiz() {
     document.getElementById('teacherDashboard').classList.add('hidden');
     document.getElementById('createQuizForm').classList.remove('hidden');
-    addQuestion(); // Add first question automatically
+    addQuestion();
 }
 
-/**
- * Cancel quiz creation and return to dashboard
- */
 function cancelCreateQuiz() {
     document.getElementById('createQuizForm').classList.add('hidden');
     document.getElementById('teacherDashboard').classList.remove('hidden');
@@ -82,18 +227,13 @@ function cancelCreateQuiz() {
     questionCount = 0;
 }
 
-/**
- * Navigate back to teacher dashboard
- */
 function backToTeacherDashboard() {
     document.getElementById('myQuizzesList').classList.add('hidden');
     document.getElementById('quizLinkSection').classList.add('hidden');
     document.getElementById('teacherDashboard').classList.remove('hidden');
+    stopListeningToQuizUpdates();
 }
 
-/**
- * Add a new question to the quiz form
- */
 function addQuestion() {
     questionCount++;
     const container = document.getElementById('questionsContainer');
@@ -128,23 +268,17 @@ function addQuestion() {
                     <input type="text" class="option-input-text" placeholder="Option D">
                 </div>
             </div>
-            <small style="color: #666; margin-top: 0.5rem; display: block;">Select the correct answer by clicking the radio button</small>
+            <small style="color: #666; margin-top: 0.5rem; display: block;">Select the correct answer</small>
         </div>
     `;
     container.appendChild(questionBlock);
 }
 
-/**
- * Remove a question from the quiz form
- */
 function removeQuestion(button) {
     button.closest('.question-block').remove();
     updateQuestionNumbers();
 }
 
-/**
- * Update question numbers after deletion
- */
 function updateQuestionNumbers() {
     const questions = document.querySelectorAll('.question-block');
     questionCount = questions.length;
@@ -153,15 +287,11 @@ function updateQuestionNumbers() {
     });
 }
 
-/**
- * Save the quiz and generate shareable link
- */
-function saveQuiz() {
+async function saveQuiz() {
     const title = document.getElementById('quizTitle').value.trim();
     const description = document.getElementById('quizDescription').value.trim();
     const timeLimit = parseInt(document.getElementById('quizTime').value);
 
-    // Validation
     if (!title) {
         alert('Please enter a quiz title');
         return;
@@ -176,7 +306,6 @@ function saveQuiz() {
     const questions = [];
     let isValid = true;
 
-    // Collect all questions and validate
     questionBlocks.forEach((block, index) => {
         const questionText = block.querySelector('.question-text-input').value.trim();
         const options = Array.from(block.querySelectorAll('.option-input-text')).map(input => input.value.trim());
@@ -197,7 +326,6 @@ function saveQuiz() {
 
     if (!isValid) return;
 
-    // Create quiz object
     const quiz = {
         id: Date.now().toString(),
         code: generateQuizCode(),
@@ -209,34 +337,30 @@ function saveQuiz() {
         participants: []
     };
 
-    // Save to localStorage
-    quizzes.push(quiz);
-    localStorage.setItem('quizzes', JSON.stringify(quizzes));
-
-    // Show quiz link
-    showQuizLink(quiz);
+    const saved = await saveQuizToFirebase(quiz);
+    if (saved) {
+        showQuizLink(quiz);
+    } else {
+        alert('Error saving quiz. Please try again.');
+    }
 }
 
-/**
- * Generate a random 6-digit quiz code
- */
 function generateQuizCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-/**
- * Display the quiz link and code after creation
- */
 function showQuizLink(quiz) {
     document.getElementById('createQuizForm').classList.add('hidden');
     const linkSection = document.getElementById('quizLinkSection');
     linkSection.classList.remove('hidden');
     
     const quizURL = `${window.location.href.split('?')[0]}?quiz=${quiz.code}`;
+    const storageType = isFirebaseEnabled() ? '☁️ Cloud (Works on all devices)' : '💾 Local (Current device only)';
     
     linkSection.innerHTML = `
         <div class="quiz-link-container">
             <h3>🎉 Quiz Created Successfully!</h3>
+            <p style="margin-bottom: 0.5rem;">Storage: ${storageType}</p>
             <p style="margin-bottom: 1rem;">Share this link or code with your students:</p>
             <div class="link-display">${quizURL}</div>
             <div class="link-display" style="margin-bottom: 1.5rem; font-size: 2rem; font-family: 'Righteous', cursive;">
@@ -252,9 +376,6 @@ function showQuizLink(quiz) {
     `;
 }
 
-/**
- * Reset the quiz form
- */
 function resetQuizForm() {
     document.getElementById('quizTitle').value = '';
     document.getElementById('quizDescription').value = '';
@@ -264,14 +385,11 @@ function resetQuizForm() {
     document.getElementById('quizLinkSection').classList.add('hidden');
 }
 
-/**
- * Copy text to clipboard
- */
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
         alert('✅ Link copied to clipboard!');
     }).catch(() => {
-        alert('Failed to copy. Please copy the link manually.');
+        alert('Failed to copy. Please copy manually.');
     });
 }
 
@@ -279,20 +397,28 @@ function copyToClipboard(text) {
 // Teacher Functions - Quiz Management
 // ==========================================
 
-/**
- * Show list of all created quizzes
- */
-function showMyQuizzes() {
+async function showMyQuizzes() {
     document.getElementById('teacherDashboard').classList.add('hidden');
     document.getElementById('myQuizzesList').classList.remove('hidden');
-    displayQuizzes();
+    
+    // Show loading
+    document.getElementById('quizzesList').innerHTML = '<p style="text-align:center;">Loading quizzes...</p>';
+    
+    if (isFirebaseEnabled()) {
+        // Set up real-time listener for Firebase
+        listenToQuizUpdates((quizzes) => {
+            displayQuizzes(quizzes);
+        });
+    } else {
+        // Load from localStorage
+        const quizzes = await getQuizzesFromFirebase();
+        displayQuizzes(quizzes);
+    }
 }
 
-/**
- * Display all quizzes in the list
- */
-function displayQuizzes() {
+function displayQuizzes(quizzes) {
     const container = document.getElementById('quizzesList');
+    
     if (quizzes.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
@@ -304,43 +430,46 @@ function displayQuizzes() {
         return;
     }
 
-    container.innerHTML = quizzes.map(quiz => `
-        <div class="quiz-card" onclick="viewQuizDetails('${quiz.id}')">
-            <h3>${quiz.title}</h3>
-            <p style="color: #666; margin-bottom: 0.5rem;">${quiz.description || 'No description'}</p>
-            <p style="color: var(--primary); font-weight: 600;">
-                📊 ${quiz.questions.length} questions • ⏱️ ${quiz.timeLimit} minutes
-            </p>
-            <p style="margin-top: 0.5rem; font-size: 1.2rem; font-family: monospace; color: var(--secondary);">
-                Code: <strong>${quiz.code}</strong>
-            </p>
-            <span class="participants-count">👥 ${quiz.participants.length} participants</span>
-        </div>
-    `).join('');
+    container.innerHTML = quizzes.map(quiz => {
+        const participantCount = quiz.participants ? 
+            (Array.isArray(quiz.participants) ? quiz.participants.length : Object.keys(quiz.participants).length) : 0;
+        
+        return `
+            <div class="quiz-card" onclick="viewQuizDetails('${quiz.id}')">
+                <h3>${quiz.title}</h3>
+                <p style="color: #666; margin-bottom: 0.5rem;">${quiz.description || 'No description'}</p>
+                <p style="color: var(--primary); font-weight: 600;">
+                    📊 ${quiz.questions.length} questions • ⏱️ ${quiz.timeLimit} minutes
+                </p>
+                <p style="margin-top: 0.5rem; font-size: 1.2rem; font-family: monospace; color: var(--secondary);">
+                    Code: <strong>${quiz.code}</strong>
+                </p>
+                <span class="participants-count">👥 ${participantCount} participants</span>
+            </div>
+        `;
+    }).join('');
 }
 
-/**
- * View detailed information about a specific quiz
- */
-function viewQuizDetails(quizId) {
+async function viewQuizDetails(quizId) {
+    const quizzes = await getQuizzesFromFirebase();
     const quiz = quizzes.find(q => q.id === quizId);
     if (!quiz) return;
 
     const quizURL = `${window.location.href.split('?')[0]}?quiz=${quiz.code}`;
     
+    // Convert participants object to array if needed
+    let participantsArray = [];
+    if (quiz.participants) {
+        participantsArray = Array.isArray(quiz.participants) ? 
+            quiz.participants : Object.values(quiz.participants);
+    }
+    
     const modal = document.createElement('div');
     modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 2rem;
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.8); display: flex;
+        align-items: center; justify-content: center;
+        z-index: 1000; padding: 2rem;
     `;
     
     modal.innerHTML = `
@@ -352,7 +481,7 @@ function viewQuizDetails(quizId) {
                 <p><strong>Questions:</strong> ${quiz.questions.length}</p>
                 <p><strong>Time Limit:</strong> ${quiz.timeLimit} minutes</p>
                 <p><strong>Quiz Code:</strong> <span style="font-size: 1.5rem; color: var(--primary); font-family: monospace;">${quiz.code}</span></p>
-                <p><strong>Participants:</strong> ${quiz.participants.length}</p>
+                <p><strong>Participants:</strong> ${participantsArray.length}</p>
             </div>
 
             <div style="background: linear-gradient(135deg, #f093fb, #f5576c); padding: 1.5rem; border-radius: 12px; color: white; margin-bottom: 1.5rem;">
@@ -362,10 +491,10 @@ function viewQuizDetails(quizId) {
                 </div>
             </div>
 
-            ${quiz.participants.length > 0 ? `
+            ${participantsArray.length > 0 ? `
                 <div class="leaderboard">
                     <h3 style="font-family: 'Righteous', cursive; color: var(--secondary); margin-bottom: 1rem;">🏆 Leaderboard</h3>
-                    ${quiz.participants.sort((a, b) => b.score - a.score).map((p, i) => `
+                    ${participantsArray.sort((a, b) => b.score - a.score).map((p, i) => `
                         <div class="leaderboard-item">
                             <span class="rank">#${i + 1}</span>
                             <span class="participant-name">${p.name}</span>
@@ -389,13 +518,10 @@ function viewQuizDetails(quizId) {
 }
 
 // ==========================================
-// Student Functions - Join Quiz
+// Student Functions
 // ==========================================
 
-/**
- * Join a quiz using code
- */
-function joinQuiz() {
+async function joinQuiz() {
     const name = document.getElementById('studentName').value.trim();
     const code = document.getElementById('quizCode').value.trim();
 
@@ -409,7 +535,7 @@ function joinQuiz() {
         return;
     }
 
-    const quiz = quizzes.find(q => q.code === code);
+    const quiz = await getQuizByCode(code);
     if (!quiz) {
         alert('Invalid quiz code. Please check and try again.');
         return;
@@ -425,21 +551,11 @@ function joinQuiz() {
     startQuiz();
 }
 
-/**
- * Start the quiz
- */
 function startQuiz() {
     displayQuestion();
     startTimer();
 }
 
-// ==========================================
-// Student Functions - Take Quiz
-// ==========================================
-
-/**
- * Display current question
- */
 function displayQuestion() {
     const container = document.getElementById('studentQuizView');
     container.classList.remove('hidden');
@@ -475,9 +591,6 @@ function displayQuestion() {
     `;
 }
 
-/**
- * Select an answer option
- */
 function selectAnswer(index) {
     selectedAnswerIndex = index;
     document.querySelectorAll('.answer-option').forEach((opt, i) => {
@@ -489,9 +602,6 @@ function selectAnswer(index) {
     });
 }
 
-/**
- * Submit current answer and move to next question
- */
 function submitAnswer() {
     if (selectedAnswerIndex === null) {
         alert('Please select an answer');
@@ -509,10 +619,7 @@ function submitAnswer() {
     }
 }
 
-/**
- * Finish the quiz and calculate score
- */
-function finishQuiz() {
+async function finishQuiz() {
     clearTimer();
     
     let score = 0;
@@ -522,25 +629,16 @@ function finishQuiz() {
         }
     });
 
-    // Save participant data
     const participant = {
         name: studentName,
         score: score,
         completedAt: new Date().toISOString()
     };
 
-    const quiz = quizzes.find(q => q.id === currentQuiz.id);
-    if (quiz) {
-        quiz.participants.push(participant);
-        localStorage.setItem('quizzes', JSON.stringify(quizzes));
-    }
-
+    await saveParticipantResult(currentQuiz.id, participant);
     displayResults(score);
 }
 
-/**
- * Display quiz results
- */
 function displayResults(score) {
     const container = document.getElementById('studentQuizView');
     const percentage = Math.round((score / currentQuiz.questions.length) * 100);
@@ -597,9 +695,6 @@ function displayResults(score) {
 // Timer Functions
 // ==========================================
 
-/**
- * Start the quiz timer
- */
 function startTimer() {
     updateTimerDisplay();
     timerInterval = setInterval(() => {
@@ -614,9 +709,6 @@ function startTimer() {
     }, 1000);
 }
 
-/**
- * Update the timer display
- */
 function updateTimerDisplay() {
     let timerEl = document.querySelector('.timer');
     if (!timerEl) {
@@ -633,16 +725,12 @@ function updateTimerDisplay() {
         <div class="timer-value">${minutes}:${seconds.toString().padStart(2, '0')}</div>
     `;
 
-    // Change color when time is running out
     if (timeRemaining <= 60) {
         timerEl.style.background = 'linear-gradient(135deg, #EF476F, #f5576c)';
         timerEl.style.color = 'white';
     }
 }
 
-/**
- * Clear the timer
- */
 function clearTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
@@ -658,10 +746,8 @@ function clearTimer() {
 // Initialization
 // ==========================================
 
-/**
- * Check for quiz code in URL on page load
- */
 window.addEventListener('DOMContentLoaded', () => {
+    // Check for quiz code in URL
     const urlParams = new URLSearchParams(window.location.search);
     const quizCode = urlParams.get('quiz');
     
@@ -669,4 +755,14 @@ window.addEventListener('DOMContentLoaded', () => {
         selectMode('student');
         document.getElementById('quizCode').value = quizCode;
     }
+
+    // Display Firebase status
+    setTimeout(() => {
+        if (isFirebaseEnabled()) {
+            console.log('🌐 Multi-device mode: ENABLED (Firebase connected)');
+        } else {
+            console.log('💾 Single-device mode: localStorage only');
+            console.log('To enable multi-device support, configure Firebase in index.html');
+        }
+    }, 1000);
 });
