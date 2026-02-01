@@ -766,3 +766,24 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }, 1000);
 });
+
+// ==========================================
+// Export functions to global scope for HTML onclick handlers
+// ==========================================
+window.selectMode = selectMode;
+window.goBack = goBack;
+window.showCreateQuiz = showCreateQuiz;
+window.showMyQuizzes = showMyQuizzes;
+window.addQuestion = addQuestion;
+window.saveQuiz = saveQuiz;
+window.cancelCreateQuiz = cancelCreateQuiz;
+window.backToTeacherDashboard = backToTeacherDashboard;
+window.joinQuiz = joinQuiz;
+window.deleteQuiz = deleteQuiz;
+window.handleQuestionChange = handleQuestionChange;
+window.removeQuestion = removeQuestion;
+window.selectAnswer = selectAnswer;
+window.submitAnswer = submitAnswer;
+window.finishQuiz = finishQuiz;
+window.displayResults = displayResults;
+window.retakeQuiz = retakeQuiz;

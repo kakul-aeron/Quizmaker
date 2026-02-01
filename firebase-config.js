@@ -1,14 +1,14 @@
 // Firebase Configuration
-// This file loads configuration from environment variables for security
-// Make sure to add .env to .gitignore to keep credentials safe
+// Loads configuration from environment variables for security
+// Environment variables are defined in .env file (never commit this file!)
 
 export const firebaseConfig = {
-    apiKey: "AIzaSyDmy1ZN5BdJfb-ppPNtAjvZ-kgJbRXraeg",
-    authDomain: "quizmaker-e296a.firebaseapp.com",
-    databaseURL: "https://quizmaker-e296a-default-rtdb.firebaseio.com",
-    projectId: "quizmaker-e296a",
-    storageBucket: "quizmaker-e296a.firebasestorage.app",
-    messagingSenderId: "656680380425",
-    appId: "1:656680380425:web:485fc654fb40848c2930d8",
-    measurementId: "G-HQZZ9226H8"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };

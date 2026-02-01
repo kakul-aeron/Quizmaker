@@ -1,0 +1,17 @@
+{
+  "name": "quizmaker",
+  "version": "1.0.0",
+  "description": "Interactive Learning Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21"
+  },
+  "dependencies": {
+    "firebase": "^10.14.1"
+  }
+}
